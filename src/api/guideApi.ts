@@ -20,6 +20,11 @@ export type GuideBookingsResponse = {
   }>;
 };
 
+/** `GET /guides/bookings` — body `{ data: { open, assigned } }` from guide-service `listGuideBookings`. */
 export async function fetchGuideBookings(token: string): Promise<GuideBookingsResponse> {
-  return apiRequest<GuideBookingsResponse>(API_ROUTES.guideBookings, { token });
+  const raw = await apiRequest<unknown>(API_ROUTES.guideBookings, { token });
+  const o = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const open = Array.isArray(o.open) ? o.open : [];
+  const assigned = Array.isArray(o.assigned) ? o.assigned : [];
+  return { open, assigned } as GuideBookingsResponse;
 }

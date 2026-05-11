@@ -6,8 +6,10 @@ export function mapBackendStatusToMobile(raw: string | undefined): MobileBooking
   if (s === "ACCEPTED" || s === "CONFIRMED") return "accepted";
   if (s === "DECLINED" || s === "REJECTED") return "declined";
   if (s === "CANCELLED" || s === "CANCELED") return "cancelled";
+  if (s === "REFUNDED" || s === "REFUND_PENDING" || s === "REFUND_STARTED") return "cancelled";
+  if (s === "EXPIRED") return "cancelled";
   if (s === "COMPLETED" || s === "DONE") return "completed";
-  if (s === "REQUESTED" || s === "PENDING" || s === "AWAITING_PAYMENT") return "pending";
+  if (s === "REQUESTED" || s === "PENDING" || s === "AWAITING_PAYMENT" || s === "PENDING_PAYMENT" || s === "UNPAID") return "pending";
   if (s === "IN_PROGRESS" || s === "ACTIVE") return "current";
   return "pending";
 }
@@ -54,18 +56,41 @@ export type TouristBookingRecord = {
   priceBreakdown?: { depositCents?: number; totalCents?: number };
 };
 
-export function mapTouristBookingRecord(raw: Record<string, unknown>, trekTitle?: string, imageUrl?: string): MobileBooking {
+function pickPriceBreakdown(raw: Record<string, unknown>): TouristBookingRecord["priceBreakdown"] | undefined {
+  const pb = raw.priceBreakdown ?? raw.price_breakdown;
+  if (!pb || typeof pb !== "object") return undefined;
+  return pb as TouristBookingRecord["priceBreakdown"];
+}
+
+export function mapTouristBookingRecord(
+  raw: Record<string, unknown>,
+  trekTitle?: string,
+  imageUrl?: string,
+  extras?: { locationLabel?: string; heroCaption?: string; guideCompany?: string },
+): MobileBooking {
   const r = raw as unknown as TouristBookingRecord;
+  const bookingId = String(
+    r.bookingId ?? (raw as { id?: string }).id ?? (raw as { bookingNumber?: string }).bookingNumber ?? "",
+  ).trim();
+  const trekId = String(r.trekId ?? (raw as { trek_id?: string }).trek_id ?? "").trim();
   const lifecycleStatus = mapBackendStatusToMobile(r.bookingStatus ?? r.status);
-  const start = String(r.requestedStartDate ?? "").slice(0, 10);
-  const depositCents = r.priceBreakdown?.depositCents;
-  const totalCents = r.priceBreakdown?.totalCents;
+  const start = String(r.requestedStartDate ?? (raw as { requested_start_date?: string }).requested_start_date ?? "").slice(
+    0,
+    10,
+  );
+  const breakdown = pickPriceBreakdown(raw);
+  const depositCents = breakdown?.depositCents ?? (breakdown as { deposit_cents?: number } | undefined)?.deposit_cents;
+  const totalCents = breakdown?.totalCents ?? (breakdown as { total_cents?: number } | undefined)?.total_cents;
   const endRaw = raw.requestedEndAt;
   const endStr = typeof endRaw === "string" ? endRaw.slice(0, 10) : undefined;
+  const rawCompany = (raw as { guideCompanyName?: string; guideBusinessName?: string }).guideCompanyName
+    ?? (raw as { guideBusinessName?: string }).guideBusinessName;
+  const company = extras?.guideCompany ?? (typeof rawCompany === "string" ? rawCompany : undefined);
+
   const base: MobileBooking = {
-    bookingId: String(r.bookingId ?? ""),
-    tripId: String(r.trekId ?? ""),
-    tripTitle: trekTitle ?? String(raw.trekId ?? ""),
+    bookingId,
+    tripId: trekId || String(raw.trekId ?? ""),
+    tripTitle: trekTitle?.trim() || trekId || bookingId || "Trip",
     tripImageUrl: imageUrl,
     startDate: start,
     endDate: endStr ?? (start ? addDays(start, 7) : undefined),
@@ -79,6 +104,9 @@ export function mapTouristBookingRecord(raw: Record<string, unknown>, trekTitle?
     travelerCount: r.travelers,
     notes: r.notes,
     createdAt: r.createdAt,
+    tripLocationLabel: extras?.locationLabel,
+    tripHeroCaption: extras?.heroCaption,
+    guideCompanyName: company,
   };
   return base;
 }

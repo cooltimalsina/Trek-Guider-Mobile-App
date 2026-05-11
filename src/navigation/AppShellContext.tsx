@@ -18,14 +18,18 @@ import {
   Easing,
   FlatList,
   type FlatListProps,
+  LayoutAnimation,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   type ScrollViewProps,
   StyleSheet,
   Text,
+  TextInput,
+  UIManager,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -35,6 +39,20 @@ import { initialsFromName } from "@/utils/initials";
 
 const HEADER_INNER = 52;
 const DRAWER_WIDTH = Math.min(320, Dimensions.get("window").width * 0.88);
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+/** Tourist home registers this so the shell bar shows search + filter and inline expand search. */
+export type TouristCatalogHeaderState = {
+  searchExpanded: boolean;
+  setSearchExpanded: (v: boolean) => void;
+  searchDraft: string;
+  onSearchDraftChange: (text: string) => void;
+  onFilterPress: () => void;
+  hasActiveSearchDot: boolean;
+};
 
 export type AppShellConfig = {
   homeHref: string;
@@ -52,6 +70,8 @@ type AppShellContextValue = {
   closeDrawer: () => void;
   /** Full show: bar visible, same as initial (use on tab focus). */
   resetMainHeader: () => void;
+  /** Tourist catalog home only — clears when screen unmounts / loses focus. */
+  setTouristCatalogHeader: (next: TouristCatalogHeaderState | null) => void;
 };
 
 const AppShellContext = createContext<AppShellContextValue | undefined>(undefined);
@@ -79,6 +99,13 @@ export function AppShellProvider({ children, config }: { children: ReactNode; co
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   const lastY = useRef(0);
+  const [touristCatalogHeader, setTouristCatalogHeaderState] = useState<TouristCatalogHeaderState | null>(null);
+  const catalogHeaderRef = useRef<TouristCatalogHeaderState | null>(null);
+  catalogHeaderRef.current = touristCatalogHeader;
+
+  const setTouristCatalogHeader = useCallback((next: TouristCatalogHeaderState | null) => {
+    setTouristCatalogHeaderState(next);
+  }, []);
 
   /** Full chrome height: safe area + inner bar (+ hairline). */
   const headerTotal = insets.top + HEADER_INNER + 1;
@@ -128,6 +155,11 @@ export function AppShellProvider({ children, config }: { children: ReactNode; co
 
   const onMainScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (catalogHeaderRef.current?.searchExpanded) {
+        showHeader();
+        lastY.current = e.nativeEvent.contentOffset.y;
+        return;
+      }
       const y = e.nativeEvent.contentOffset.y;
       const dy = y - lastY.current;
       lastY.current = y;
@@ -198,6 +230,11 @@ export function AppShellProvider({ children, config }: { children: ReactNode; co
   const displayName = user?.displayName?.trim() || user?.email?.trim() || "Account";
   const initials = initialsFromName(displayName);
 
+  /** Trip detail + profile use their own chrome; hide shell bar so layout matches design. */
+  const path = pathname.split("?")[0].replace(/\/$/, "") || pathname;
+  const hideMainHeaderChrome =
+    /\/booking\//.test(pathname) || /\/trek\//.test(pathname) || path.endsWith("/profile");
+
   const ctx = useMemo<AppShellContextValue>(
     () => ({
       animatedContentPaddingStyle,
@@ -206,34 +243,105 @@ export function AppShellProvider({ children, config }: { children: ReactNode; co
       openDrawer,
       closeDrawer,
       resetMainHeader,
+      setTouristCatalogHeader,
     }),
-    [animatedContentPaddingStyle, onMainScroll, openDrawer, closeDrawer, resetMainHeader],
+    [animatedContentPaddingStyle, onMainScroll, openDrawer, closeDrawer, resetMainHeader, setTouristCatalogHeader],
   );
+
+  const cat = touristCatalogHeader;
+  const searchExpanded = Boolean(cat?.searchExpanded);
 
   return (
     <AppShellContext.Provider value={ctx}>
       <View style={[styles.fill, { backgroundColor: colors.bg }]}>{children}</View>
-      <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-        <Animated.View
-          style={[
-            styles.headerClip,
-            {
-              paddingTop: insets.top,
-              opacity: headerProgress,
-              transform: [{ translateY: headerTranslate }],
-            },
-          ]}
-        >
-          <View style={styles.headerRow}>
-            <Pressable onPress={openDrawer} hitSlop={12} style={styles.iconBtn} accessibilityLabel="Open menu">
-              <FontAwesome name="bars" size={22} color={colors.text} />
-            </Pressable>
-            <Pressable onPress={goHome} style={styles.brandWrap}>
-              <Text style={styles.brand}>Trek Guider</Text>
-            </Pressable>
-          </View>
-        </Animated.View>
-      </View>
+      {!hideMainHeaderChrome ? (
+        <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+          <Animated.View
+            style={[
+              styles.headerClip,
+              {
+                paddingTop: insets.top,
+                opacity: headerProgress,
+                transform: [{ translateY: headerTranslate }],
+              },
+            ]}
+          >
+            <View style={styles.headerRow}>
+              {cat && searchExpanded ? (
+                <>
+                  <Pressable
+                    onPress={() => {
+                      LayoutAnimation.configureNext(LayoutAnimation.create(180, "easeInEaseOut", "opacity"));
+                      cat.setSearchExpanded(false);
+                    }}
+                    hitSlop={10}
+                    style={styles.searchBackBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close search"
+                  >
+                    <FontAwesome name="chevron-left" size={16} color={colors.text} />
+                  </Pressable>
+                  <TextInput
+                    key="catalog-search-expanded"
+                    value={cat.searchDraft}
+                    onChangeText={cat.onSearchDraftChange}
+                    placeholder="Search a perfect trip"
+                    placeholderTextColor={colors.muted}
+                    style={styles.headerSearchInput}
+                    returnKeyType="search"
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    autoFocus
+                    {...(Platform.OS === "ios" ? ({ clearButtonMode: "while-editing" } as const) : {})}
+                    accessibilityLabel="Search treks"
+                  />
+                </>
+              ) : cat && !searchExpanded ? (
+                <>
+                  <Pressable onPress={openDrawer} hitSlop={12} style={styles.iconBtn} accessibilityLabel="Open menu">
+                    <FontAwesome name="bars" size={22} color={colors.text} />
+                  </Pressable>
+                  <Pressable onPress={goHome} style={styles.brandWrap}>
+                    <Text style={styles.brand}>Trek Guider</Text>
+                  </Pressable>
+                  <View style={styles.headerFlexSpacer} />
+                  <Pressable
+                    onPress={() => {
+                      LayoutAnimation.configureNext(LayoutAnimation.create(180, "easeInEaseOut", "opacity"));
+                      cat.setSearchExpanded(true);
+                    }}
+                    hitSlop={10}
+                    style={styles.headerIconSquare}
+                    accessibilityRole="button"
+                    accessibilityLabel="Search treks"
+                  >
+                    <FontAwesome name="search" size={18} color={colors.text} />
+                    {cat.hasActiveSearchDot ? <View style={styles.headerSearchDot} /> : null}
+                  </Pressable>
+                  <Pressable
+                    onPress={cat.onFilterPress}
+                    hitSlop={10}
+                    style={styles.headerIconSquare}
+                    accessibilityRole="button"
+                    accessibilityLabel="Sort treks"
+                  >
+                    <FontAwesome name="sliders" size={18} color={colors.text} />
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Pressable onPress={openDrawer} hitSlop={12} style={styles.iconBtn} accessibilityLabel="Open menu">
+                    <FontAwesome name="bars" size={22} color={colors.text} />
+                  </Pressable>
+                  <Pressable onPress={goHome} style={styles.brandWrap}>
+                    <Text style={styles.brand}>Trek Guider</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </Animated.View>
+        </View>
+      ) : null}
 
       <Modal visible={drawerVisible} transparent animationType="none" onRequestClose={closeDrawer}>
         <View style={styles.modalRoot}>
@@ -294,8 +402,47 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  headerFlexSpacer: { flex: 1 },
+  headerIconSquare: {
+    padding: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    position: "relative",
+  },
+  headerSearchDot: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
+  },
+  searchBackBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 2,
+  },
+  headerSearchInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 38,
     paddingHorizontal: 12,
-    gap: 4,
+    paddingVertical: 0,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    fontSize: 15,
+    color: colors.text,
   },
   iconBtn: { padding: 8 },
   brandWrap: { paddingVertical: 8, paddingHorizontal: 4, flexShrink: 1 },

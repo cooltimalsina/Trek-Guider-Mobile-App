@@ -20,5 +20,6 @@ export const API_ROUTES = {
   guideBookings: "/guides/bookings",
 
   /** Public — no auth */
+  treks: "/treks",
   trekById: (id: string) => `/treks/${encodeURIComponent(id)}`,
 } as const;

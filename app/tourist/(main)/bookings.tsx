@@ -21,7 +21,7 @@ export default function TouristBookingsScreen() {
   useResetMainHeaderOnFocus();
   const router = useRouter();
   const shell = useAppShell();
-  const { accessToken, user } = useAuth();
+  const { accessToken, user, isReady } = useAuth();
   const [list, setList] = useState<MobileBooking[]>([]);
   const [lifecycleTab, setLifecycleTab] = useState<TripLifecycleFilter>("all");
   const [loading, setLoading] = useState(true);
@@ -32,11 +32,11 @@ export default function TouristBookingsScreen() {
     if (!accessToken) return;
     setErr(null);
     const res = await fetchTouristBookings(accessToken);
-    const rawItems = (res.items ?? []) as Record<string, unknown>[];
+    const rawItems = (res.items ?? []).filter((x): x is Record<string, unknown> => Boolean(x && typeof x === "object"));
     const trekCache = new Map<string, { title?: string; image?: string }>();
     const enriched = await Promise.all(
       rawItems.map(async (row) => {
-        const trekId = String((row as { trekId?: string }).trekId ?? "");
+        const trekId = String((row as { trekId?: string }).trekId ?? (row as { trek_id?: string }).trek_id ?? "");
         let title: string | undefined;
         let image: string | undefined;
         if (trekId) {
@@ -58,11 +58,14 @@ export default function TouristBookingsScreen() {
         return mapTouristBookingRecord(row, title, image);
       }),
     );
-    enriched.sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""));
-    setList(enriched);
+    const valid = enriched.filter((b) => Boolean(b.bookingId));
+    valid.sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""));
+    setList(valid);
   }, [accessToken]);
 
   useEffect(() => {
+    if (!isReady) return;
+    if (!accessToken) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -77,7 +80,7 @@ export default function TouristBookingsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [load]);
+  }, [isReady, accessToken, load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

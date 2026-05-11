@@ -28,4 +28,8 @@ export type MobileBooking = {
   updatedAt?: string;
   /** Guide-only: from open pool vs assigned */
   source?: "open" | "assigned";
+  /** Enriched on detail from trek API when available */
+  tripLocationLabel?: string;
+  tripHeroCaption?: string;
+  guideCompanyName?: string;
 };

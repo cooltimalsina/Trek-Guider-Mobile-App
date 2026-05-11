@@ -29,7 +29,6 @@ export default function GuideRootLayout() {
   return (
     <Stack screenOptions={{ contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="(main)" options={{ headerShown: false }} />
-      <Stack.Screen name="booking/[bookingId]" options={{ title: "Booking", headerShown: true }} />
       <Stack.Screen name="onboarding-required" options={{ title: "Guide setup", headerShown: true }} />
     </Stack>
   );

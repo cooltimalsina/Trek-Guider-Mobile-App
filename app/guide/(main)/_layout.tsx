@@ -49,6 +49,13 @@ export default function GuideTabsLayout() {
             tabBarIcon: ({ color }) => <FontAwesome name="user" size={20} color={color} />,
           }}
         />
+        <Tabs.Screen
+          name="booking/[bookingId]"
+          options={{
+            href: null,
+            title: "Booking",
+          }}
+        />
       </Tabs>
     </AppShellProvider>
   );

@@ -1,10 +1,11 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "@/auth/AuthContext";
 import { AppButton } from "@/components/AppButton";
 import { AppInput } from "@/components/AppInput";
+import { PasswordInput } from "@/components/PasswordInput";
 import { AppScreen } from "@/components/AppScreen";
 import { ENV } from "@/constants/env";
 import type { AuthIntent } from "@/types/auth";
@@ -13,8 +14,14 @@ import { colors } from "@/theme/colors";
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { mode: modeParam } = useLocalSearchParams<{ mode?: string }>();
   const { signIn } = useAuth();
-  const [mode, setMode] = useState<AuthIntent>("tourist");
+  const [mode, setMode] = useState<AuthIntent>(() => (modeParam === "guide" ? "guide" : "tourist"));
+
+  useEffect(() => {
+    if (modeParam === "guide") setMode("guide");
+    else if (modeParam === "tourist") setMode("tourist");
+  }, [modeParam]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,9 +59,9 @@ export default function WelcomeScreen() {
 
       {err ? <Text style={styles.err}>{err}</Text> : null}
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.formBlock}>
         <AppInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
-        <AppInput label="Password" value={password} onChangeText={setPassword} secureTextEntry />
+        <PasswordInput label="Password" value={password} onChangeText={setPassword} />
         <AppButton title="Log in" onPress={onLogin} loading={loading} />
       </KeyboardAvoidingView>
 
@@ -82,6 +89,7 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  formBlock: { width: "100%", maxWidth: 420, alignSelf: "center" },
   hero: { marginBottom: 24, alignItems: "center" },
   logo: { fontSize: 32, fontWeight: "800", color: colors.text },
   signingAs: { marginTop: 10, fontSize: 16, color: colors.muted, lineHeight: 22, textAlign: "center" },

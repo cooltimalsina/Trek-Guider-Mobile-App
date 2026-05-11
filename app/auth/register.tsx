@@ -5,6 +5,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { AppButton } from "@/components/AppButton";
 import { AppInput } from "@/components/AppInput";
 import { AppScreen } from "@/components/AppScreen";
+import { PasswordInput } from "@/components/PasswordInput";
 import type { AuthIntent } from "@/types/auth";
 import { ApiError } from "@/types/api";
 import { colors } from "@/theme/colors";
@@ -19,9 +20,9 @@ export default function RegisterScreen() {
   const mode = useMemo(() => intentFromParam(modeParam), [modeParam]);
   const { signUp } = useAuth();
 
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -29,9 +30,17 @@ export default function RegisterScreen() {
   async function onSubmit() {
     setErr(null);
     setInfo(null);
+    if (!password) {
+      setErr("Enter a password.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErr("Passwords do not match.");
+      return;
+    }
     setLoading(true);
     try {
-      const res = await signUp(email.trim(), password, mode, name.trim() || undefined);
+      const res = await signUp(email.trim(), password, mode);
       setInfo(res.message ?? (res.needsEmailVerification ? "Check your email to verify, then log in." : "You can sign in now."));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Sign up failed";
@@ -42,20 +51,21 @@ export default function RegisterScreen() {
   }
 
   return (
-    <AppScreen scroll keyboard>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <AppScreen scroll keyboard centerContent>
+      <View style={styles.column}>
         <Text style={styles.title}>{mode === "guide" ? "Create guide account" : "Create traveler account"}</Text>
-        <Text style={styles.sub}>
-          Same as the website: <Text style={styles.em}>/auth/register</Text> with intent{" "}
-          <Text style={styles.em}>{mode}</Text>.
-        </Text>
         {err ? <Text style={styles.err}>{err}</Text> : null}
         {info ? <Text style={styles.info}>{info}</Text> : null}
-        <AppInput label="Full name" value={name} onChangeText={setName} autoCapitalize="words" />
-        <AppInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
-        <AppInput label="Password" value={password} onChangeText={setPassword} secureTextEntry />
-        <AppButton title="Register" onPress={onSubmit} loading={loading} />
-        <Pressable style={styles.mt} onPress={() => router.replace("/auth/welcome")}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.form}>
+          <AppInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" />
+          <PasswordInput label="Password" value={password} onChangeText={setPassword} />
+          <PasswordInput label="Confirm password" value={confirmPassword} onChangeText={setConfirmPassword} />
+          <AppButton title="Register" onPress={onSubmit} loading={loading} />
+        </KeyboardAvoidingView>
+        <Pressable
+          style={styles.mt}
+          onPress={() => router.replace({ pathname: "/auth/welcome", params: { mode } })}
+        >
           <Text style={styles.link}>Already have an account? Log in</Text>
         </Pressable>
         {mode === "tourist" ? (
@@ -67,18 +77,29 @@ export default function RegisterScreen() {
             <Text style={styles.switch}>Registering as a traveler instead?</Text>
           </Pressable>
         )}
-      </KeyboardAvoidingView>
+      </View>
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 26, fontWeight: "800", color: colors.text },
-  sub: { marginTop: 8, marginBottom: 20, fontSize: 14, color: colors.muted, lineHeight: 20 },
-  em: { fontSize: 14, fontWeight: "700", color: colors.text },
-  err: { color: colors.danger, marginBottom: 12, fontSize: 14 },
-  info: { color: colors.primaryDark, marginBottom: 12, fontSize: 14 },
-  link: { marginTop: 16, color: colors.primary, fontWeight: "600", fontSize: 15 },
-  switch: { marginTop: 8, color: colors.primary, fontWeight: "600", fontSize: 15 },
-  mt: { marginTop: 12 },
+  column: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: colors.text,
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  form: { width: "100%" },
+  err: { color: colors.danger, marginBottom: 12, fontSize: 14, textAlign: "center", width: "100%" },
+  info: { color: colors.primaryDark, marginBottom: 12, fontSize: 14, textAlign: "center", width: "100%" },
+  link: { marginTop: 16, color: colors.primary, fontWeight: "600", fontSize: 15, textAlign: "center" },
+  switch: { marginTop: 8, color: colors.primary, fontWeight: "600", fontSize: 15, textAlign: "center" },
+  mt: { marginTop: 12, alignSelf: "stretch", alignItems: "center" },
 });

@@ -43,6 +43,20 @@ export default function TouristTabsLayout() {
             tabBarIcon: ({ color }) => <FontAwesome name="user" size={20} color={color} />,
           }}
         />
+        <Tabs.Screen
+          name="booking/[bookingId]"
+          options={{
+            href: null,
+            title: "Trip",
+          }}
+        />
+        <Tabs.Screen
+          name="trek/[trekId]"
+          options={{
+            href: null,
+            title: "Trek",
+          }}
+        />
       </Tabs>
     </AppShellProvider>
   );

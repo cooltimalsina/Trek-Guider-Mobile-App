@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/theme/colors";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "dark";
 
 type Props = {
   title: string;
@@ -16,6 +16,7 @@ type Props = {
 export function AppButton({ title, onPress, loading, disabled, variant = "primary", icon }: Props) {
   const isPrimary = variant === "primary";
   const isDanger = variant === "danger";
+  const isDark = variant === "dark";
   return (
     <Pressable
       onPress={onPress}
@@ -26,12 +27,13 @@ export function AppButton({ title, onPress, loading, disabled, variant = "primar
         variant === "secondary" && styles.secondary,
         variant === "ghost" && styles.ghost,
         isDanger && styles.danger,
+        isDark && styles.dark,
         (disabled || loading) && styles.disabled,
         pressed && styles.pressed,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary || isDanger ? "#fff" : colors.primary} />
+        <ActivityIndicator color={isPrimary || isDanger || isDark ? "#fff" : colors.primary} />
       ) : (
         <View style={styles.inner}>
           {icon}
@@ -41,6 +43,7 @@ export function AppButton({ title, onPress, loading, disabled, variant = "primar
               isPrimary && styles.textOnPrimary,
               variant === "secondary" && styles.textSecondary,
               isDanger && styles.textOnPrimary,
+              isDark && styles.textOnPrimary,
             ]}
           >
             {title}
@@ -68,6 +71,7 @@ const styles = StyleSheet.create({
   },
   ghost: { backgroundColor: "transparent" },
   danger: { backgroundColor: colors.danger },
+  dark: { backgroundColor: "#111827" },
   disabled: { opacity: 0.5 },
   pressed: { opacity: 0.88 },
   text: { fontSize: 16, fontWeight: "600" },

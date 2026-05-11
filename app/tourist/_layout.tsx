@@ -21,7 +21,6 @@ export default function TouristRootLayout() {
   return (
     <Stack screenOptions={{ contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="(main)" options={{ headerShown: false }} />
-      <Stack.Screen name="booking/[bookingId]" options={{ title: "Booking", headerShown: true }} />
     </Stack>
   );
 }

@@ -29,7 +29,7 @@ export default function GuideBookingsScreen() {
   useResetMainHeaderOnFocus();
   const router = useRouter();
   const shell = useAppShell();
-  const { accessToken } = useAuth();
+  const { accessToken, isReady } = useAuth();
   const [list, setList] = useState<MobileBooking[]>([]);
   const [tab, setTab] = useState<BookingFilterTab>("all");
   const [loading, setLoading] = useState(true);
@@ -44,6 +44,7 @@ export default function GuideBookingsScreen() {
   }, [accessToken]);
 
   useEffect(() => {
+    if (!isReady || !accessToken) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -58,7 +59,7 @@ export default function GuideBookingsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [load]);
+  }, [isReady, accessToken, load]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
