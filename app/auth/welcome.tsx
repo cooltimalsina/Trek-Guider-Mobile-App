@@ -11,10 +11,6 @@ import type { AuthIntent } from "@/types/auth";
 import { ApiError } from "@/types/api";
 import { colors } from "@/theme/colors";
 
-/**
- * Same model as Trek-Guider web: only API Gateway + `intent` on `/auth/login`.
- * No user pool id on the client — backend selects the Cognito app client.
- */
 export default function WelcomeScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
@@ -45,16 +41,13 @@ export default function WelcomeScreen() {
     void WebBrowser.openBrowserAsync(`${base}/login${q}`);
   }
 
+  const signingAs = mode === "tourist" ? "Signing in as Traveler" : "Signing in as Guide";
+
   return (
-    <AppScreen scroll keyboard>
+    <AppScreen scroll keyboard centerContent>
       <View style={styles.hero}>
         <Text style={styles.logo}>Trek Guider</Text>
-        <Text style={styles.tag}>Plan treks. Match with trusted guides.</Text>
-      </View>
-
-      <View style={styles.modeRow}>
-        <Text style={styles.modeLabel}>Signing in as</Text>
-        <Text style={styles.modeValue}>{mode === "tourist" ? "Traveler" : "Guide"}</Text>
+        <Text style={styles.signingAs}>{signingAs}</Text>
       </View>
 
       {err ? <Text style={styles.err}>{err}</Text> : null}
@@ -84,33 +77,15 @@ export default function WelcomeScreen() {
       <Pressable style={styles.forgotWrap} onPress={openWebPasswordHelp} disabled={!ENV.webBaseUrl}>
         <Text style={[styles.forgot, !ENV.webBaseUrl && styles.forgotDisabled]}>Forgot password? (website)</Text>
       </Pressable>
-
-      <Text style={styles.foot}>
-        Bookings and checkout use your browser. Only your API base URL is required here — same as the website.
-      </Text>
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  hero: { marginBottom: 24, marginTop: 8 },
+  hero: { marginBottom: 24, alignItems: "center" },
   logo: { fontSize: 32, fontWeight: "800", color: colors.text },
-  tag: { marginTop: 8, fontSize: 16, color: colors.muted, lineHeight: 22 },
-  modeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modeLabel: { fontSize: 13, color: colors.muted, fontWeight: "600" },
-  modeValue: { fontSize: 15, fontWeight: "800", color: colors.primary },
-  err: { color: colors.danger, marginBottom: 12, fontSize: 14 },
+  signingAs: { marginTop: 10, fontSize: 16, color: colors.muted, lineHeight: 22, textAlign: "center" },
+  err: { color: colors.danger, marginBottom: 12, fontSize: 14, textAlign: "center" },
   registerWrap: { marginTop: 20, alignItems: "center" },
   registerText: { fontSize: 15, color: colors.muted },
   registerBold: { color: colors.primary, fontWeight: "700" },
@@ -119,5 +94,4 @@ const styles = StyleSheet.create({
   forgotWrap: { marginTop: 8, alignItems: "center" },
   forgot: { fontSize: 14, color: colors.muted, fontWeight: "500" },
   forgotDisabled: { opacity: 0.45 },
-  foot: { marginTop: 28, fontSize: 12, color: colors.muted, lineHeight: 18 },
 });

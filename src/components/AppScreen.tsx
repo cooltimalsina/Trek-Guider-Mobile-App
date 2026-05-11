@@ -8,12 +8,14 @@ type Props = {
   scroll?: boolean;
   /** Use when screen has a text input */
   keyboard?: boolean;
+  /** When scroll is true, vertically centers content if it is shorter than the viewport */
+  centerContent?: boolean;
 };
 
-export function AppScreen({ children, scroll, keyboard }: Props) {
+export function AppScreen({ children, scroll, keyboard, centerContent }: Props) {
   const content = scroll ? (
     <ScrollView
-      contentContainerStyle={styles.scrollContent}
+      contentContainerStyle={[styles.scrollContent, centerContent && styles.scrollContentCentered]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
@@ -43,4 +45,5 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   fill: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 32, flexGrow: 1 },
+  scrollContentCentered: { justifyContent: "center" },
 });

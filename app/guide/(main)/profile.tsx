@@ -2,13 +2,23 @@ import { StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { AppButton } from "@/components/AppButton";
 import { WebsiteLinkButton } from "@/components/WebsiteLinkButton";
+import { ShellScrollView, useAppShell } from "@/navigation/AppShellContext";
+import { useResetMainHeaderOnFocus } from "@/navigation/useResetMainHeaderOnFocus";
 import { colors } from "@/theme/colors";
 
 export default function GuideProfileScreen() {
+  useResetMainHeaderOnFocus();
   const { user, signOut } = useAuth();
+  const shell = useAppShell();
 
   return (
-    <View style={styles.box}>
+    <ShellScrollView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      contentContainerStyle={[shell.animatedContentPaddingStyle, styles.body]}
+      onScroll={shell.onMainScroll}
+      scrollEventThrottle={shell.scrollEventThrottle}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>Profile</Text>
       <View style={styles.card}>
         <Row label="Display name" value={user?.displayName ?? "—"} />
@@ -20,7 +30,7 @@ export default function GuideProfileScreen() {
       <WebsiteLinkButton label="Open guide website" path="/guide" />
       <View style={{ height: 12 }} />
       <AppButton title="Log out" variant="danger" onPress={() => void signOut()} />
-    </View>
+    </ShellScrollView>
   );
 }
 
@@ -34,7 +44,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  box: { flex: 1, padding: 16, backgroundColor: colors.bg },
+  body: { paddingHorizontal: 16, paddingBottom: 40, flexGrow: 1 },
   title: { fontSize: 22, fontWeight: "800", color: colors.text, marginBottom: 16 },
   card: {
     backgroundColor: colors.surface,

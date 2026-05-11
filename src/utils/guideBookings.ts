@@ -5,29 +5,35 @@ import { mapGuideBookingRow } from "@/utils/bookingMappers";
 
 export async function loadGuideBookingsEnriched(token: string): Promise<MobileBooking[]> {
   const data = await fetchGuideBookings(token);
-  const trekCache = new Map<string, string | undefined>();
-  async function titleFor(trekId: string): Promise<string | undefined> {
-    if (trekCache.has(trekId)) return trekCache.get(trekId);
+  const trekCache = new Map<string, { title?: string; image?: string }>();
+  async function trekMeta(trekId: string): Promise<{ title?: string; image?: string }> {
+    const hit = trekCache.get(trekId);
+    if (hit) return hit;
     try {
       const trek = await fetchTrekPublic(trekId);
-      const t = trek.title ?? trek.name;
-      trekCache.set(trekId, t);
-      return t;
+      const meta = {
+        title: trek.title ?? trek.name,
+        image: trek.heroImageUrl ?? trek.coverImageUrl ?? trek.thumbnailUrl ?? trek.imageUrl,
+      };
+      trekCache.set(trekId, meta);
+      return meta;
     } catch {
-      trekCache.set(trekId, undefined);
-      return undefined;
+      trekCache.set(trekId, {});
+      return {};
     }
   }
 
   const open = await Promise.all(
-    (data.open ?? []).map(async (row) =>
-      mapGuideBookingRow(row, "open", await titleFor(row.trekId)),
-    ),
+    (data.open ?? []).map(async (row) => {
+      const { title, image } = await trekMeta(row.trekId);
+      return mapGuideBookingRow(row, "open", title, image);
+    }),
   );
   const assigned = await Promise.all(
-    (data.assigned ?? []).map(async (row) =>
-      mapGuideBookingRow(row, "assigned", await titleFor(row.trekId)),
-    ),
+    (data.assigned ?? []).map(async (row) => {
+      const { title, image } = await trekMeta(row.trekId);
+      return mapGuideBookingRow(row, "assigned", title, image);
+    }),
   );
   const merged = [...assigned, ...open];
   merged.sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""));

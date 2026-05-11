@@ -1,35 +1,29 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { fetchTouristBookings, fetchTrekPublic } from "@/api/touristApi";
 import { BookingCard } from "@/components/BookingCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { LoadingState } from "@/components/LoadingState";
+import { TripLifecycleChips } from "@/components/TripLifecycleChips";
 import { WebsiteLinkButton } from "@/components/WebsiteLinkButton";
-import type { MobileBooking } from "@/types/booking";
-import { filterBookings, type BookingFilterTab } from "@/utils/bookingFilters";
-import { mapTouristBookingRecord } from "@/utils/bookingMappers";
-import { colors } from "@/theme/colors";
 import { ENV } from "@/constants/env";
-
-const TABS: BookingFilterTab[] = [
-  "all",
-  "upcoming",
-  "current",
-  "pending",
-  "accepted",
-  "declined",
-  "cancelled",
-  "completed",
-];
+import { useAppShell } from "@/navigation/AppShellContext";
+import { useResetMainHeaderOnFocus } from "@/navigation/useResetMainHeaderOnFocus";
+import { colors } from "@/theme/colors";
+import type { MobileBooking } from "@/types/booking";
+import { filterTripsByLifecycle, type TripLifecycleFilter } from "@/utils/bookingFilters";
+import { mapTouristBookingRecord } from "@/utils/bookingMappers";
 
 export default function TouristBookingsScreen() {
+  useResetMainHeaderOnFocus();
   const router = useRouter();
-  const { accessToken } = useAuth();
+  const shell = useAppShell();
+  const { accessToken, user } = useAuth();
   const [list, setList] = useState<MobileBooking[]>([]);
-  const [tab, setTab] = useState<BookingFilterTab>("all");
+  const [lifecycleTab, setLifecycleTab] = useState<TripLifecycleFilter>("all");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,34 +90,40 @@ export default function TouristBookingsScreen() {
     }
   }, [load]);
 
-  const filtered = useMemo(() => filterBookings(list, tab), [list, tab]);
+  const filtered = useMemo(() => filterTripsByLifecycle(list, lifecycleTab), [list, lifecycleTab]);
 
   if (loading) return <LoadingState />;
   if (err) return <ErrorState message={err} onRetry={() => void load()} />;
 
   return (
     <View style={styles.flex}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {TABS.map((t) => (
-          <Pressable
-            key={t}
-            onPress={() => setTab(t)}
-            style={[styles.tab, tab === t && styles.tabOn]}
-          >
-            <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{t === "all" ? "All" : t}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <Animated.View style={[shell.animatedContentPaddingStyle, styles.headerBlock]}>
+        <TripLifecycleChips list={list} selected={lifecycleTab} onSelect={setLifecycleTab} />
+        <View style={styles.sectionRow}>
+          <Text style={styles.section}>Your trips</Text>
+          <Text style={styles.tripCount}>
+            {filtered.length} {filtered.length === 1 ? "trip" : "trips"}
+          </Text>
+        </View>
+      </Animated.View>
       <FlatList
+        style={{ flex: 1 }}
         data={filtered}
         keyExtractor={(item) => item.bookingId}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        onScroll={shell.onMainScroll}
+        scrollEventThrottle={shell.scrollEventThrottle}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListEmptyComponent={
-          <EmptyState title="No bookings in this filter" message="Try another tab or book on the website." />
+          <EmptyState title="No trips in this filter" message="Try another status or book on the website." />
         }
         renderItem={({ item }) => (
-          <BookingCard booking={item} onPress={() => router.push(`/tourist/booking/${item.bookingId}`)} />
+          <BookingCard
+            booking={item}
+            viewer="tourist"
+            bookerFallbackName={user?.displayName}
+            onPress={() => router.push(`/tourist/booking/${item.bookingId}`)}
+          />
         )}
         ListFooterComponent={
           <View style={styles.footer}>
@@ -138,18 +138,16 @@ export default function TouristBookingsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
-  tabs: { paddingHorizontal: 12, paddingVertical: 10, gap: 8, flexDirection: "row" },
-  tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  headerBlock: { paddingHorizontal: 16, paddingBottom: 4 },
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    marginTop: 4,
   },
-  tabOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  tabText: { fontSize: 13, fontWeight: "600", color: colors.muted, textTransform: "capitalize" },
-  tabTextOn: { color: "#fff" },
+  section: { fontSize: 20, fontWeight: "800", color: colors.text },
+  tripCount: { fontSize: 15, color: colors.muted, fontWeight: "500" },
   list: { padding: 16, paddingBottom: 48 },
   footer: { marginTop: 24, gap: 8 },
   hint: { fontSize: 12, color: colors.muted },

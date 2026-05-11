@@ -10,6 +10,7 @@ import { TripCard } from "@/components/TripCard";
 import { WebsiteLinkButton } from "@/components/WebsiteLinkButton";
 import type { MobileBooking } from "@/types/booking";
 import { mapTouristBookingRecord } from "@/utils/bookingMappers";
+import { formatDateRangeUs } from "@/utils/dateFormat";
 import { colors } from "@/theme/colors";
 
 export default function TouristBookingDetailScreen() {
@@ -58,7 +59,11 @@ export default function TouristBookingDetailScreen() {
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.body}>
-      <TripCard title={booking.tripTitle} imageUrl={booking.tripImageUrl} subtitle={booking.startDate} />
+      <TripCard
+        title={booking.tripTitle}
+        imageUrl={booking.tripImageUrl}
+        subtitle={formatDateRangeUs(booking.startDate, booking.endDate)}
+      />
       <View style={styles.row}>
         <Text style={styles.h2}>Status</Text>
         <StatusBadge status={booking.status} />

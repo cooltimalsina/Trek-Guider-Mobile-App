@@ -1,3 +1,5 @@
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { colors } from "@/theme/colors";
 
@@ -8,19 +10,20 @@ type Props = {
 };
 
 export function TripCard({ title, imageUrl, subtitle }: Props) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const uri = imageUrl && !imgFailed ? imageUrl : null;
+
   return (
     <View style={styles.card}>
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.img} resizeMode="cover" />
+      <Text style={styles.title}>{title}</Text>
+      {uri ? (
+        <Image source={{ uri }} style={styles.img} resizeMode="cover" onError={() => setImgFailed(true)} />
       ) : (
         <View style={[styles.img, styles.placeholder]}>
-          <Text style={styles.phText}>Trek</Text>
+          <FontAwesome name="image" size={36} color={colors.textMuted} />
         </View>
       )}
-      <View style={styles.body}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
-      </View>
+      {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -32,11 +35,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingBottom: 14,
   },
-  img: { width: "100%", height: 160, backgroundColor: colors.border },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 12 },
+  img: { width: "100%", height: 160, backgroundColor: colors.borderSubtle },
   placeholder: { alignItems: "center", justifyContent: "center" },
-  phText: { color: colors.muted, fontWeight: "700" },
-  body: { padding: 14 },
-  title: { fontSize: 18, fontWeight: "700", color: colors.text },
-  sub: { marginTop: 4, fontSize: 14, color: colors.muted },
+  sub: { marginTop: 12, paddingHorizontal: 14, fontSize: 14, color: colors.muted },
 });

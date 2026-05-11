@@ -1,24 +1,29 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ShellFlatList, useAppShell } from "@/navigation/AppShellContext";
+import { useResetMainHeaderOnFocus } from "@/navigation/useResetMainHeaderOnFocus";
 import { useAuth } from "@/auth/AuthContext";
 import { fetchTouristBookings, fetchTrekPublic } from "@/api/touristApi";
 import { BookingCard } from "@/components/BookingCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { LoadingState } from "@/components/LoadingState";
-import { SummaryCard } from "@/components/SummaryCard";
+import { TripLifecycleChips } from "@/components/TripLifecycleChips";
 import { WebsiteLinkButton } from "@/components/WebsiteLinkButton";
 import type { MobileBooking } from "@/types/booking";
-import { mapTouristBookingRecord } from "@/utils/bookingMappers";
-import { countByStatus } from "@/utils/bookingFilters";
-import { colors } from "@/theme/colors";
 import { ENV } from "@/constants/env";
+import { colors } from "@/theme/colors";
+import { mapTouristBookingRecord } from "@/utils/bookingMappers";
+import { filterTripsByLifecycle, type TripLifecycleFilter } from "@/utils/bookingFilters";
 
 export default function TouristDashboardScreen() {
+  useResetMainHeaderOnFocus();
   const router = useRouter();
+  const shell = useAppShell();
   const { accessToken, user, refreshProfile } = useAuth();
   const [list, setList] = useState<MobileBooking[]>([]);
+  const [lifecycleTab, setLifecycleTab] = useState<TripLifecycleFilter>("all");
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,18 +91,7 @@ export default function TouristDashboardScreen() {
     }
   }, [load]);
 
-  const recent = useMemo(() => list.slice(0, 5), [list]);
-
-  const summary = useMemo(
-    () => ({
-      upcoming: countByStatus(list, "upcoming"),
-      current: countByStatus(list, "current"),
-      pending: countByStatus(list, "pending"),
-      accepted: countByStatus(list, "accepted"),
-      cancelled: countByStatus(list, "cancelled"),
-    }),
-    [list],
-  );
+  const filtered = useMemo(() => filterTripsByLifecycle(list, lifecycleTab), [list, lifecycleTab]);
 
   if (loading) {
     return <LoadingState />;
@@ -108,35 +102,43 @@ export default function TouristDashboardScreen() {
   }
 
   return (
-    <FlatList
-      data={recent}
+    <ShellFlatList
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      data={filtered}
       keyExtractor={(item) => item.bookingId}
+      onScroll={shell.onMainScroll}
+      scrollEventThrottle={shell.scrollEventThrottle}
+      contentContainerStyle={[shell.animatedContentPaddingStyle, { paddingBottom: 32 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <View style={styles.pad}>
           <Text style={styles.hi}>Welcome{user?.displayName ? `, ${user.displayName}` : ""}</Text>
           <Text style={styles.sub}>Your trips and requests at a glance.</Text>
-          <View style={styles.grid}>
-            <SummaryCard label="Upcoming" value={summary.upcoming} accent={colors.primary} />
-            <SummaryCard label="Current" value={summary.current} accent={colors.blue} />
-            <SummaryCard label="Pending" value={summary.pending} accent={colors.gold} />
-            <SummaryCard label="Accepted" value={summary.accepted} accent={colors.primary} />
-            <SummaryCard label="Cancelled" value={summary.cancelled} accent={colors.muted} />
+          <TripLifecycleChips list={list} selected={lifecycleTab} onSelect={setLifecycleTab} />
+          <View style={styles.sectionRow}>
+            <Text style={styles.section}>Your trips</Text>
+            <Text style={styles.tripCount}>
+              {filtered.length} {filtered.length === 1 ? "trip" : "trips"}
+            </Text>
           </View>
-          <Text style={styles.section}>Recent bookings</Text>
         </View>
       }
       ListEmptyComponent={
         <View style={styles.pad}>
           <EmptyState
-            title="No bookings yet"
-            message="Browse and book treks on the Trek Guider website — your trips will show up here."
+            title="No trips in this filter"
+            message="Try another status or book a trek on the Trek Guider website."
           />
         </View>
       }
       renderItem={({ item }) => (
         <View style={styles.cardPad}>
-          <BookingCard booking={item} onPress={() => router.push(`/tourist/booking/${item.bookingId}`)} />
+          <BookingCard
+            booking={item}
+            viewer="tourist"
+            bookerFallbackName={user?.displayName}
+            onPress={() => router.push(`/tourist/booking/${item.bookingId}`)}
+          />
         </View>
       )}
       ListFooterComponent={
@@ -157,8 +159,15 @@ const styles = StyleSheet.create({
   pad: { paddingHorizontal: 16, paddingTop: 8 },
   cardPad: { paddingHorizontal: 16 },
   hi: { fontSize: 24, fontWeight: "800", color: colors.text },
-  sub: { marginTop: 6, fontSize: 15, color: colors.muted, marginBottom: 16 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 20 },
-  section: { fontSize: 17, fontWeight: "700", color: colors.text, marginBottom: 10 },
+  sub: { marginTop: 6, fontSize: 15, color: colors.muted, marginBottom: 12 },
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  section: { fontSize: 20, fontWeight: "800", color: colors.text },
+  tripCount: { fontSize: 15, color: colors.muted, fontWeight: "500" },
   footer: { padding: 24, paddingBottom: 40, gap: 8 },
 });

@@ -14,6 +14,8 @@ export type MobileBooking = {
   tripImageUrl?: string;
   startDate: string;
   endDate?: string;
+  /** Normalized workflow from API before date-based upcoming/current UI on `status`. */
+  lifecycleStatus: MobileBookingStatus;
   status: MobileBookingStatus;
   paymentStatus?: string;
   depositAmount?: number;

@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { BookingCard } from "@/components/BookingCard";
 import { EmptyState } from "@/components/EmptyState";
@@ -8,13 +8,17 @@ import { ErrorState } from "@/components/ErrorState";
 import { LoadingState } from "@/components/LoadingState";
 import { SummaryCard } from "@/components/SummaryCard";
 import { WebsiteLinkButton } from "@/components/WebsiteLinkButton";
+import { ShellFlatList, useAppShell } from "@/navigation/AppShellContext";
+import { useResetMainHeaderOnFocus } from "@/navigation/useResetMainHeaderOnFocus";
+import { colors } from "@/theme/colors";
 import type { MobileBooking } from "@/types/booking";
 import { countByStatus } from "@/utils/bookingFilters";
 import { loadGuideBookingsEnriched } from "@/utils/guideBookings";
-import { colors } from "@/theme/colors";
 
 export default function GuideDashboardScreen() {
+  useResetMainHeaderOnFocus();
   const router = useRouter();
+  const shell = useAppShell();
   const { accessToken, user, refreshProfile } = useAuth();
   const [list, setList] = useState<MobileBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +78,13 @@ export default function GuideDashboardScreen() {
   if (err) return <ErrorState message={err} onRetry={() => void load()} />;
 
   return (
-    <FlatList
+    <ShellFlatList
+      style={{ flex: 1, backgroundColor: colors.bg }}
       data={recent}
       keyExtractor={(item) => `${item.source ?? "x"}-${item.bookingId}`}
+      onScroll={shell.onMainScroll}
+      scrollEventThrottle={shell.scrollEventThrottle}
+      contentContainerStyle={[shell.animatedContentPaddingStyle, { paddingBottom: 32 }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       ListHeaderComponent={
         <View style={styles.pad}>
@@ -99,7 +107,7 @@ export default function GuideDashboardScreen() {
       }
       renderItem={({ item }) => (
         <View style={styles.cardPad}>
-          <BookingCard booking={item} onPress={() => router.push(`/guide/booking/${item.bookingId}`)} />
+          <BookingCard booking={item} viewer="guide" onPress={() => router.push(`/guide/booking/${item.bookingId}`)} />
         </View>
       )}
       ListFooterComponent={

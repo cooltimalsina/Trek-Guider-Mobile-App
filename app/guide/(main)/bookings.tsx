@@ -1,16 +1,18 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/auth/AuthContext";
 import { BookingCard } from "@/components/BookingCard";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { LoadingState } from "@/components/LoadingState";
 import { WebsiteLinkButton } from "@/components/WebsiteLinkButton";
+import { useAppShell } from "@/navigation/AppShellContext";
+import { useResetMainHeaderOnFocus } from "@/navigation/useResetMainHeaderOnFocus";
+import { colors } from "@/theme/colors";
 import type { MobileBooking } from "@/types/booking";
 import { filterBookings, type BookingFilterTab } from "@/utils/bookingFilters";
 import { loadGuideBookingsEnriched } from "@/utils/guideBookings";
-import { colors } from "@/theme/colors";
 
 const TABS: BookingFilterTab[] = [
   "all",
@@ -24,7 +26,9 @@ const TABS: BookingFilterTab[] = [
 ];
 
 export default function GuideBookingsScreen() {
+  useResetMainHeaderOnFocus();
   const router = useRouter();
+  const shell = useAppShell();
   const { accessToken } = useAuth();
   const [list, setList] = useState<MobileBooking[]>([]);
   const [tab, setTab] = useState<BookingFilterTab>("all");
@@ -74,21 +78,26 @@ export default function GuideBookingsScreen() {
 
   return (
     <View style={styles.flex}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {TABS.map((t) => (
-          <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabOn]}>
-            <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{t === "all" ? "All" : t}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <Animated.View style={[shell.animatedContentPaddingStyle, styles.tabsBlock]}>
+        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+          {TABS.map((t) => (
+            <Pressable key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabOn]}>
+              <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{t === "all" ? "All" : t}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </Animated.View>
       <FlatList
+        style={{ flex: 1 }}
         data={filtered}
         keyExtractor={(item) => `${item.source ?? "x"}-${item.bookingId}`}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        onScroll={shell.onMainScroll}
+        scrollEventThrottle={shell.scrollEventThrottle}
         contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListEmptyComponent={<EmptyState title="Nothing in this filter" message="Try another tab." />}
         renderItem={({ item }) => (
-          <BookingCard booking={item} onPress={() => router.push(`/guide/booking/${item.bookingId}`)} />
+          <BookingCard booking={item} viewer="guide" onPress={() => router.push(`/guide/booking/${item.bookingId}`)} />
         )}
         ListFooterComponent={
           <View style={styles.footer}>
@@ -102,6 +111,7 @@ export default function GuideBookingsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
+  tabsBlock: { paddingBottom: 4 },
   tabs: { paddingHorizontal: 12, paddingVertical: 10, gap: 8, flexDirection: "row" },
   tab: {
     paddingHorizontal: 14,

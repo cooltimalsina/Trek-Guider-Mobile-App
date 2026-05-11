@@ -56,7 +56,7 @@ export type TouristBookingRecord = {
 
 export function mapTouristBookingRecord(raw: Record<string, unknown>, trekTitle?: string, imageUrl?: string): MobileBooking {
   const r = raw as unknown as TouristBookingRecord;
-  const status = mapBackendStatusToMobile(r.bookingStatus ?? r.status);
+  const lifecycleStatus = mapBackendStatusToMobile(r.bookingStatus ?? r.status);
   const start = String(r.requestedStartDate ?? "").slice(0, 10);
   const depositCents = r.priceBreakdown?.depositCents;
   const totalCents = r.priceBreakdown?.totalCents;
@@ -69,7 +69,8 @@ export function mapTouristBookingRecord(raw: Record<string, unknown>, trekTitle?
     tripImageUrl: imageUrl,
     startDate: start,
     endDate: endStr ?? (start ? addDays(start, 7) : undefined),
-    status: inferTemporalStatus({ status, start }),
+    lifecycleStatus,
+    status: inferTemporalStatus({ status: lifecycleStatus, start }),
     paymentStatus: r.paymentStatus,
     depositAmount: depositCents != null ? depositCents / 100 : undefined,
     totalAmount: totalCents != null ? totalCents / 100 : undefined,
@@ -91,16 +92,23 @@ type GuideBookingRow = {
   requestedStartDate: string;
 };
 
-export function mapGuideBookingRow(raw: GuideBookingRow, source: "open" | "assigned", trekTitle?: string): MobileBooking {
-  const status = mapBackendStatusToMobile(raw.status);
+export function mapGuideBookingRow(
+  raw: GuideBookingRow,
+  source: "open" | "assigned",
+  trekTitle?: string,
+  trekImageUrl?: string,
+): MobileBooking {
+  const lifecycleStatus = mapBackendStatusToMobile(raw.status);
   const start = raw.requestedStartDate?.slice(0, 10) ?? "";
   return {
     bookingId: raw.bookingId,
     tripId: raw.trekId,
     tripTitle: trekTitle ?? raw.trekId,
+    tripImageUrl: trekImageUrl,
     startDate: start,
     endDate: start ? addDays(start, 7) : undefined,
-    status: inferTemporalStatus({ status, start }),
+    lifecycleStatus,
+    status: inferTemporalStatus({ status: lifecycleStatus, start }),
     touristName: source === "assigned" ? `Traveler ${raw.touristUserId.slice(0, 6)}…` : undefined,
     source,
     travelerCount: undefined,
